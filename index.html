@@ -385,7 +385,7 @@
                 const noise = Math.sin(time * p.twinkleSpeed + p.twinklePhase);
                 let brightnessMultiplier = 1.0;
                 if (noise > 0.97) { 
-                    brightnessMultiplier = 1.0 + (noise - 0.97) * 200.0; 
+                    brightnessMultiplier = 1.0 + (noise - 0.97) * 15.0; 
                 }
 
                 tempColor.copy(p.baseColor).multiplyScalar(brightnessMultiplier);
