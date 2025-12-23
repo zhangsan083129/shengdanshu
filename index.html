@@ -103,7 +103,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
         
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.8; 
+        renderer.toneMappingExposure = 0.5; 
         document.body.appendChild(renderer.domElement);
 
         const renderScene = new RenderPass(scene, camera);
