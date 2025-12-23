@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magic Tree v47 (Center Zoom, Raycaster, Fixed Rotation)</title>
+    <title>Magic Tree v48 (Fixed Zoom Disappear)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
@@ -61,7 +61,7 @@
     <div id="crosshair"></div>
     <div id="hand-cursor"></div>
     <div id="ui-layer">
-        <div class="header"><h1>Chroma Galaxy v47</h1><div class="status">STATE: <span id="state-display" class="highlight">TREE</span></div></div>
+        <div class="header"><h1>Chroma Galaxy v48</h1><div class="status">STATE: <span id="state-display" class="highlight">TREE</span></div></div>
         <div class="controls" id="controls-panel">
             <label class="upload-btn">Upload Photos<input type="file" id="file-input" multiple accept="image/*" style="display: none;"></label>
             <div class="guide"><div class="guide-item"><span>✊</span>Make Tree</div><div class="guide-item"><span>🖐️</span>Sphere Galaxy</div><div class="guide-item"><span>👌</span>Select/Grab</div></div>
@@ -104,7 +104,7 @@
         let currentRotationVelocityX = 0;
         let currentRotationVelocityY = 0;
 
-        // Raycaster 用于精确检测
+        // Raycaster
         const raycaster = new THREE.Raycaster();
         const centerVector = new THREE.Vector2(0, 0); 
 
@@ -148,7 +148,6 @@
         });
 
         new RGBELoader()
-            // 本地加载 HDR
             .load( './royal_esplanade_1k.hdr', function ( texture ) {
                 texture.mapping = THREE.EquirectangularReflectionMapping;
                 materialMetal.envMap = texture;
@@ -379,7 +378,6 @@
                 
                 const noise = Math.sin(time * p.twinkleSpeed + p.twinklePhase);
                 let brightnessMultiplier = 1.0;
-                
                 if (noise > 0.97) { 
                     brightnessMultiplier = 1.0 + (noise - 0.97) * 15.0; 
                 }
@@ -440,10 +438,16 @@
                     const targetPos = basePos.clone().applyMatrix4(rotMatrix);
 
                     if (currentState === STATE.ZOOM && selectedPhotoIndex === mesh.userData.id) { 
-                        // 【修改点】抓取时位置居中 (0,0,42)
-                        mesh.position.lerp(new THREE.Vector3(0, 0, 42), dt * 5); 
-                        mesh.lookAt(camera.position); 
+                        // 【修改点】1. 位置居中 (0,0,40)
+                        mesh.position.lerp(new THREE.Vector3(0, 0, 40), dt * 5); 
+                        // 【修改点】2. 强制正对屏幕 (0,0,0) 防止旋转异常
+                        mesh.rotation.set(0, 0, 0); 
                         mesh.scale.lerp(new THREE.Vector3(1.8, 1.8, 1.8), dt * 5); 
+                        
+                        // 【修改点】3. 确保边框在抓取时保持红色
+                        const border = mesh.getObjectByName("border");
+                        border.material.emissive.setHex(0xff3333);
+                        border.material.emissiveIntensity = 4.0;
                     } else {
                         mesh.position.lerp(targetPos, dt * 3); 
                         
