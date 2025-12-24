@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magic Tree v46 (V45 Particles + V40 Photo Logic)</title>
+    <title>Magic Tree v73 (Clean UI)</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
@@ -11,7 +11,6 @@
         .header { color: #ffca28; text-shadow: 0 0 10px rgba(255, 202, 40, 0.5); text-align: center; }
         h1 { margin: 0; font-weight: 300; letter-spacing: 5px; text-transform: uppercase; font-size: 1.5rem; }
         .status { color: #ccc; font-size: 0.9rem; margin-top: 5px; text-shadow: 0 0 5px #000; }
-        .highlight { color: #ff5555; font-weight: bold; }
         
         .controls { 
             pointer-events: auto; background: rgba(0, 10, 5, 0.85); 
@@ -22,9 +21,7 @@
             transition: opacity 0.8s ease, transform 0.8s ease;
             opacity: 1; transform: translateY(0);
         }
-        .controls.hidden {
-            opacity: 0; transform: translateY(20px); pointer-events: none;
-        }
+        .controls.hidden { opacity: 0; transform: translateY(20px); pointer-events: none; }
         
         .upload-btn { background: linear-gradient(45deg, #d90429, #ef233c); border: 1px solid #ffca28; color: #fff; padding: 12px 24px; cursor: pointer; font-size: 1rem; margin-bottom: 15px; transition: 0.3s; text-transform: uppercase; letter-spacing: 2px; display: inline-block; border-radius: 4px; font-weight: bold; }
         .upload-btn:hover { background: #ffca28; color: #8a0303; box-shadow: 0 0 20px #ffca28; }
@@ -33,31 +30,33 @@
         .spinner { width: 50px; height: 50px; border: 4px solid transparent; border-top-color: #ffca28; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        #hand-cursor {
-            position: absolute; width: 20px; height: 20px; 
-            border: 2px solid #ffca28; border-radius: 50%; 
-            transform: translate(-50%, -50%); pointer-events: none; 
-            display: none; z-index: 15; box-shadow: 0 0 10px #ffca28;
-            transition: width 0.2s, height 0.2s, background-color 0.2s;
+        /* 仅保留中心十字准星，移除黄色手势光标 */
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
+            transform: translate(-50%, -50%); pointer-events: none; z-index: 5;
         }
-        #hand-cursor.pinching {
-            background-color: #ffca28; width: 15px; height: 15px;
+        #crosshair::before, #crosshair::after {
+            content: ''; position: absolute; background: rgba(255, 255, 255, 0.3);
         }
-
-        .guide { display: flex; justify-content: space-around; font-size: 0.8rem; margin-top: 15px; opacity: 0.9; }
-        .guide-item span { display: block; font-size: 1.4rem; margin-bottom: 8px; }
-        .hint { margin-top: 10px; font-size: 0.75rem; color: #aaa; border-top: 1px solid #333; padding-top: 10px;}
+        #crosshair::before { top: 9px; left: 0; width: 20px; height: 2px; }
+        #crosshair::after { top: 0; left: 9px; width: 2px; height: 20px; }
     </style>
 </head>
 <body>
-    <div id="loader"><div class="spinner"></div><div>INITIALIZING VISION ENGINE...</div><div style="font-size: 0.8rem; margin-top:10px; color:#777;">请允许摄像头权限 / Please Allow Camera</div></div>
-    <div id="hand-cursor"></div>
+    <div id="loader"><div class="spinner"></div><div>SYSTEM INITIALIZING...</div><div style="font-size: 0.8rem; margin-top:10px; color:#777;">请允许摄像头权限 / Please Allow Camera</div></div>
+    <div id="crosshair"></div>
     <div id="ui-layer">
-        <div class="header"><h1>Chroma Galaxy v46</h1><div class="status">STATE: <span id="state-display" class="highlight">TREE</span></div></div>
+        <div class="header"><h1>Chroma Galaxy v73</h1><div class="status">STATE: <span id="state-display" style="color:#ff5555; font-weight:bold;">TREE</span></div></div>
         <div class="controls" id="controls-panel">
             <label class="upload-btn">Upload Photos<input type="file" id="file-input" multiple accept="image/*" style="display: none;"></label>
-            <div class="guide"><div class="guide-item"><span>✊</span>Make Tree</div><div class="guide-item"><span>🖐️</span>Sphere Galaxy</div><div class="guide-item"><span>👌</span>Select/Grab</div></div>
-            <div class="hint">👋 **Pinch & Release** to spin randomly.<br>Follow the cursor!</div>
+            <div style="margin-top:15px; font-size: 0.8rem;">
+                <div>✊ Fist: <b>To Tree</b> | 🖐️ Open: <b>To Scatter</b></div>
+                <div style="margin-top:5px; color:#aaa; font-size: 0.7rem;">(Tree Mode: Auto Rotate)</div>
+                <div style="margin-top:10px; border-top:1px solid #555; padding-top:5px;">
+                    <div>👌 Pinch: <b>Lock & Auto-Level</b></div>
+                    <div>🖐️ Release: <b>Back (0.7s)</b></div>
+                </div>
+            </div>
         </div>
     </div>
     <video id="input-video"></video>
@@ -76,27 +75,45 @@
         import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 
         const CONFIG = {
-            // 【保留设置】小球数量 1500
-            particleCount: 1500, 
+            particleCount: 1600, 
             treeHeight: 32, treeRadius: 13, 
             scatterRadius: 25, 
-            colors: [0xff3333, 0xff3333, 0x55ff55, 0x55ff55, 0xffd700, 0xffffff], 
             cameraZ: 55,
-            puffRadius: 3.0,
-            spiralLoops: 12
         };
-        const STATE = { TREE: 'TREE', SCATTER: 'SCATTER', ZOOM: 'ZOOM' };
-        let currentState = STATE.TREE; let targetState = STATE.TREE;
-        let isPinching = false; 
-
-        let rotationAngleX = 0; let rotationAngleY = 0; 
-        let treeRotationY = 0; 
         
-        let targetRotationVelocityX = (Math.random() - 0.5) * 1.5;
-        let targetRotationVelocityY = (Math.random() - 0.5) * 1.5;
-        let currentRotationVelocityX = 0;
-        let currentRotationVelocityY = 0;
+        const STATE = { TREE: 'TREE', ZOOM: 'ZOOM', RETURNING: 'RETURNING', SCATTER: 'SCATTER' };
+        let currentState = STATE.TREE; 
+        
+        // Input Signals
+        let inputFist = false; let inputPinch = false; let inputOpen = false;
+        
+        let galaxyContainer = new THREE.Group(); 
+        let targetQuaternion = new THREE.Quaternion(); 
+        let currentQuaternion = new THREE.Quaternion(); 
+        let startQuaternion = new THREE.Quaternion();
+        let treeRotationY = 0; 
 
+        // Core Data
+        let sortedPhotoIndices = []; 
+        let hoverMeshId = -1;      
+        let lockedTargetId = -1;   
+        let currentSortIndex = 0;   
+        
+        // Timers
+        let returnStartTime = 0;      
+        const RETURN_DURATION = 0.7; 
+        const AUTO_PLAY_INTERVAL = 3.0; 
+        const TOUR_MOVE_DURATION = 2.0;
+        
+        let lastAutoTime = 0;
+        let transitionStartTime = 0;
+        
+        // Raycaster
+        const raycaster = new THREE.Raycaster();
+        const centerPoint = new THREE.Vector2(0, 0); 
+        const tempVec = new THREE.Vector3();
+        const tempParentInverse = new THREE.Quaternion();
+        
         const scene = new THREE.Scene(); scene.background = new THREE.Color(0x050505); scene.fog = new THREE.FogExp2(0x050505, 0.008); 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000); camera.position.set(0, 0, CONFIG.cameraZ);
         const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
@@ -108,44 +125,27 @@
 
         const renderScene = new RenderPass(scene, camera);
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth/2, window.innerHeight/2), 1.5, 0.4, 0.85);
-        bloomPass.threshold = 0.8; 
-        bloomPass.strength = 1.8; 
-        bloomPass.radius = 0.9;   
+        bloomPass.threshold = 0.8; bloomPass.strength = 1.8; bloomPass.radius = 0.9;   
         const composer = new EffectComposer(renderer); composer.addPass(renderScene); composer.addPass(bloomPass);
 
-        // --- 灯光系统 ---
         scene.add(new THREE.AmbientLight(0xffffff, 1.5)); 
         const dirLight = new THREE.DirectionalLight(0xffeeb1, 2.0); dirLight.position.set(0, 50, 30); scene.add(dirLight); 
         const plRed = new THREE.PointLight(0xff0000, 12, 100); plRed.position.set(-30, -10, 20); scene.add(plRed); 
         const plGreen = new THREE.PointLight(0x00ff00, 12, 100); plGreen.position.set(30, 10, 20); scene.add(plGreen); 
         const plGold = new THREE.PointLight(0xffd700, 8, 100); plGold.position.set(0, 0, 30); scene.add(plGold); 
 
-        let starMesh; function createStar() { const starGeo = new THREE.OctahedronGeometry(1.5, 0); const starMat = new THREE.MeshStandardMaterial({ color: 0xfffacd, emissive: 0xfffacd, emissiveIntensity: 2.0, roughness: 0.1, metalness: 1.0 }); starMesh = new THREE.Mesh(starGeo, starMat); starMesh.position.set(0, CONFIG.treeHeight / 2 + 1, 0); scene.add(starMesh); } createStar();
+        scene.add(galaxyContainer);
 
-        // --- 粒子系统 ---
+        let starMesh; function createStar() { 
+            const starGeo = new THREE.OctahedronGeometry(1.5, 0); const starMat = new THREE.MeshStandardMaterial({ color: 0xfffacd, emissive: 0xfffacd, emissiveIntensity: 2.0, roughness: 0.1, metalness: 1.0 }); 
+            starMesh = new THREE.Mesh(starGeo, starMat); starMesh.position.set(0, CONFIG.treeHeight / 2 + 1, 0); scene.add(starMesh); 
+        } 
+        createStar();
+
         const geometrySphere = new THREE.SphereGeometry(0.3, 16, 16); 
-        
-        const materialMatte = new THREE.MeshStandardMaterial({ 
-            color: 0xffffff, roughness: 0.2, metalness: 0.4, emissive: 0x000000, envMapIntensity: 1.0 
-        });
-        
-        const materialMetal = new THREE.MeshStandardMaterial({ 
-            color: 0xffffff, roughness: 0.15, metalness: 1.0,  
-            emissive: 0xffd700, 
-            // 【保留设置】金色小球亮度 1.3
-            emissiveIntensity: 1.3, 
-            envMapIntensity: 1.2    
-        });
-
-        new RGBELoader()
-            .setPath( 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/equirectangular/' )
-            .load( 'royal_esplanade_1k.hdr', function ( texture ) {
-                texture.mapping = THREE.EquirectangularReflectionMapping;
-                materialMetal.envMap = texture;
-                materialMatte.envMap = texture; 
-                materialMetal.needsUpdate = true;
-                materialMatte.needsUpdate = true;
-            }, undefined, function(err) { console.warn("HDR Error", err); });
+        const materialMatte = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.4, emissive: 0x000000, envMapIntensity: 1.0 });
+        const materialMetal = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15, metalness: 1.0, emissive: 0xffd700, emissiveIntensity: 1.3, envMapIntensity: 1.2 });
+        new RGBELoader().setPath( 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/equirectangular/' ).load( 'royal_esplanade_1k.hdr', function ( texture ) { texture.mapping = THREE.EquirectangularReflectionMapping; materialMetal.envMap = texture; materialMatte.envMap = texture; materialMetal.needsUpdate = true; materialMatte.needsUpdate = true; });
 
         let imeshGold, imeshRed, imeshGreen;
         const particles = []; const dummy = new THREE.Object3D(); 
@@ -153,212 +153,299 @@
 
         function initParticles() {
             const count = CONFIG.particleCount;
-            // 严格 6:3:1 比例
-            const goldGoal = Math.floor(count * 0.6);
-            const redGoal = Math.floor(count * 0.3);  
-            const greenGoal = count - goldGoal - redGoal; 
-
+            const goldGoal = Math.floor(count * 0.6); const redGoal = Math.floor(count * 0.3); const greenGoal = count - goldGoal - redGoal; 
             let goldCount = 0, redCount = 0, greenCount = 0;
             const types = [];
-            for(let i=0; i<count; i++) {
-                if (i < goldGoal) { types.push('gold'); goldCount++; }
-                else if (i < goldGoal + redGoal) { types.push('red'); redCount++; }
-                else { types.push('green'); greenCount++; }
-            }
+            for(let i=0; i<count; i++) { if (i < goldGoal) { types.push('gold'); goldCount++; } else if (i < goldGoal + redGoal) { types.push('red'); redCount++; } else { types.push('green'); greenCount++; } }
             types.sort(() => Math.random() - 0.5);
-
             imeshGold = new THREE.InstancedMesh(geometrySphere, materialMetal, goldCount);
             imeshRed = new THREE.InstancedMesh(geometrySphere, materialMatte, redCount);
             imeshGreen = new THREE.InstancedMesh(geometrySphere, materialMatte, greenCount);
-
+            galaxyContainer.add(imeshGold); galaxyContainer.add(imeshRed); galaxyContainer.add(imeshGreen);
             imeshGold.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(goldCount * 3), 3);
             imeshRed.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(redCount * 3), 3);
             imeshGreen.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(greenCount * 3), 3);
-
-            imeshGold.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            imeshRed.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            imeshGreen.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            imeshGold.instanceColor.setUsage(THREE.DynamicDrawUsage);
-            imeshRed.instanceColor.setUsage(THREE.DynamicDrawUsage);
-            imeshGreen.instanceColor.setUsage(THREE.DynamicDrawUsage);
+            imeshGold.instanceMatrix.setUsage(THREE.DynamicDrawUsage); imeshRed.instanceMatrix.setUsage(THREE.DynamicDrawUsage); imeshGreen.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
             let goldIdx = 0, redIdx = 0, greenIdx = 0;
-
             for (let i = 0; i < count; i++) {
-                // 基于视觉平衡的分布 (1.8 次方根)
-                const v = Math.random(); 
-                const progress = Math.pow(v, 1/1.8); 
+                const v = Math.random(); const progress = Math.pow(v, 1/1.8); 
                 const h = (CONFIG.treeHeight / 2) - (progress * CONFIG.treeHeight);
-                const rMax = progress * CONFIG.treeRadius;
-                const rTree = rMax * Math.sqrt(Math.random()); 
-                const thetaTree = Math.random() * Math.PI * 2;
-
+                const rMax = progress * CONFIG.treeRadius; const rTree = rMax * Math.sqrt(Math.random()); const thetaTree = Math.random() * Math.PI * 2;
                 const rScatter = CONFIG.scatterRadius * Math.cbrt(Math.random()); const theta = Math.random() * Math.PI * 2; const phi = Math.acos(2 * Math.random() - 1);
                 
-                const type = types[i];
-                let colorHex;
-                
-                if (type === 'gold') colorHex = 0xffd700; 
-                else if (type === 'red') colorHex = 0xff2222; 
-                else colorHex = 0x44ff44; 
-                
-                const color = new THREE.Color(colorHex);
-                let baseScale = 1.0; 
-
-                const twinkleSpeed = 0.5 + Math.random() * 2.0; 
-                const twinklePhase = Math.random() * Math.PI * 2; 
-
+                const type = types[i]; let colorHex = (type === 'gold') ? 0xffd700 : (type === 'red' ? 0xff2222 : 0x44ff44);
+                const color = new THREE.Color(colorHex); let baseScale = 1.0; 
                 const pData = { 
                     id: i, type: type,
                     pos: new THREE.Vector3(rTree * Math.cos(thetaTree), h, rTree * Math.sin(thetaTree)), 
                     targetTree: new THREE.Vector3(rTree * Math.cos(thetaTree), h, rTree * Math.sin(thetaTree)), 
                     targetScatter: new THREE.Vector3(rScatter * Math.sin(phi) * Math.cos(theta), rScatter * Math.sin(phi) * Math.sin(theta), rScatter * Math.cos(phi)), 
                     rot: new THREE.Euler(Math.random()*Math.PI, Math.random()*Math.PI, 0), 
-                    scale: baseScale, 
-                    baseColor: color.clone(), 
-                    twinkleSpeed: twinkleSpeed,
-                    twinklePhase: twinklePhase
+                    scale: baseScale, baseColor: color.clone(), twinkleSpeed: 0.5 + Math.random() * 2.0, twinklePhase: Math.random() * Math.PI * 2
                 };
-
                 dummy.position.copy(pData.pos); dummy.scale.setScalar(baseScale); dummy.rotation.copy(pData.rot); dummy.updateMatrix();
-                
-                if (type === 'gold') {
-                    imeshGold.setColorAt(goldIdx, color); imeshGold.setMatrixAt(goldIdx++, dummy.matrix);
-                } else if (type === 'red') {
-                    imeshRed.setColorAt(redIdx, color); imeshRed.setMatrixAt(redIdx++, dummy.matrix);
-                } else {
-                    imeshGreen.setColorAt(greenIdx, color); imeshGreen.setMatrixAt(greenIdx++, dummy.matrix);
-                }
+                if (type === 'gold') { imeshGold.setColorAt(goldIdx, color); imeshGold.setMatrixAt(goldIdx++, dummy.matrix); } 
+                else if (type === 'red') { imeshRed.setColorAt(redIdx, color); imeshRed.setMatrixAt(redIdx++, dummy.matrix); } 
+                else { imeshGreen.setColorAt(greenIdx, color); imeshGreen.setMatrixAt(greenIdx++, dummy.matrix); }
                 particles.push(pData);
             }
-            scene.add(imeshGold); scene.add(imeshRed); scene.add(imeshGreen);
         }
         initParticles();
 
         let haloMesh; const haloParticles = [];
         function initRealHalo() {
-            // 【增强】白色光点数量 3000
-            const count = 3000; 
-            const geo = new THREE.SphereGeometry(0.1, 8, 8); const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.5, roughness: 1.0 });
+            const count = 1000; const geo = new THREE.SphereGeometry(0.1, 8, 8); const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.5, roughness: 1.0 });
             haloMesh = new THREE.InstancedMesh(geo, mat, count); haloMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
             for(let i=0; i<count; i++) {
-                const r = CONFIG.scatterRadius * (1.3 + Math.random() * 0.8); 
-                const theta = Math.random() * Math.PI * 2; const phi = Math.acos(2 * Math.random() - 1);
+                const r = CONFIG.scatterRadius * (1.3 + Math.random() * 0.8); const theta = Math.random() * Math.PI * 2; const phi = Math.acos(2 * Math.random() - 1);
                 const pos = new THREE.Vector3(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
                 haloParticles.push({ pos: pos, phase: Math.random() * Math.PI * 2, speed: 1 + Math.random() * 2 });
             }
-            scene.add(haloMesh);
+            galaxyContainer.add(haloMesh);
         }
         initRealHalo();
 
         let bgStars; 
         function initBackgroundStars() { 
-            const starCount = 1000; 
-            const bgGeo = new THREE.BufferGeometry(); const positions = []; for(let i=0; i<starCount; i++) { const r = 100 + Math.random() * 100; const theta = Math.random() * Math.PI * 2; const phi = Math.acos(2 * Math.random() - 1); positions.push(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi)); } bgGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3)); bgStars = new THREE.Points(bgGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.4, transparent: true, opacity: 0 })); scene.add(bgStars); 
+            const starCount = 3000; 
+            const bgGeo = new THREE.BufferGeometry(); 
+            const positions = []; 
+            for(let i=0; i<starCount; i++) { 
+                const r = 60 + Math.random() * 140; 
+                const theta = Math.random() * Math.PI * 2; 
+                const phi = Math.acos(2 * Math.random() - 1); 
+                positions.push(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi)); 
+            } 
+            bgGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3)); 
+            bgStars = new THREE.Points(bgGeo, new THREE.PointsMaterial({ 
+                color: 0xffffff, size: 0.6, transparent: true, opacity: 0, fog: false 
+            })); 
+            scene.add(bgStars); 
         } 
         initBackgroundStars();
 
-        const photoGroup = new THREE.Group(); scene.add(photoGroup); let selectedPhotoIndex = -1; 
+        const photoGroup = new THREE.Group(); 
+        galaxyContainer.add(photoGroup); 
+        
         document.getElementById('file-input').addEventListener('change', handleUpload);
         
-        // 【关键逻辑还原】V40 的照片上传逻辑
         function handleUpload(e) {
             const files = e.target.files; if (!files.length) return; photoGroup.clear(); photoMeshes = [];
-            const numFiles = files.length; const goldenRatio = (1 + Math.sqrt(5)) / 2; const photoRadiusBase = CONFIG.scatterRadius * 0.9;
+            sortedPhotoIndices = []; hoverMeshId = -1; lockedTargetId = -1;
             
-            // 使用 V40 的黄金角螺旋逻辑
-            const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-
+            const numFiles = files.length; const goldenRatio = (1 + Math.sqrt(5)) / 2; const goldenAngle = Math.PI * (3 - Math.sqrt(5));
             Array.from(files).forEach((file, index) => {
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    const img = new Image(); img.src = event.target.result; const texture = new THREE.TextureLoader().load(img.src); 
-                    const mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, color: 0xbbbbbb }); 
-                    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), mat); 
-                    
-                    const i = index; 
-                    
-                    // V40 的螺旋排列逻辑
-                    const t = index / numFiles; // 0 到 1
-                    const hTree = t * (CONFIG.treeHeight / 2) * 0.9; // 上半部分
-                    
-                    const heightFraction = (hTree + CONFIG.treeHeight / 2) / CONFIG.treeHeight;
-                    const rAtHeight = CONFIG.treeRadius * (1 - heightFraction);
-                    const rFinal = rAtHeight * 1.05;
+                    const img = new Image(); 
+                    img.src = event.target.result; 
+                    img.onload = function() {
+                        const texture = new THREE.TextureLoader().load(img.src); 
+                        const mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, color: 0xbbbbbb }); 
+                        
+                        const aspect = img.width / img.height;
+                        const BASE_SIZE = 5;
+                        let w = BASE_SIZE; let h = BASE_SIZE;
+                        if (aspect > 1) { h = BASE_SIZE / aspect; } else { w = BASE_SIZE * aspect; }
 
-                    const thetaSpiral = index * goldenAngle;
-                    
-                    mesh.userData.originalPos = new THREE.Vector3(rFinal * Math.cos(thetaSpiral), hTree, rFinal * Math.sin(thetaSpiral));
-                    
-                    // 【关键】V40 的散开位置逻辑 (Scatter)
-                    const yBase = 1 - (i / (numFiles - 1)) * 2; 
-                    const radiusAtYBase = Math.sqrt(1 - yBase * yBase); 
-                    const thetaBase = 2 * Math.PI * i / goldenRatio;
-                    
-                    // 稍微打乱一点
-                    const y = Math.max(-1, Math.min(1, yBase + (Math.random() - 0.5) * 0.3)); 
-                    const theta = thetaBase + (Math.random() - 0.5) * 0.6; 
-                    const radiusAtY = Math.sqrt(1 - y * y);
-                    const currentR = photoRadiusBase * (0.3 + 0.7 * Math.cbrt(Math.random()));
-                    
-                    const x = currentR * radiusAtY * Math.cos(theta); 
-                    const yPos = currentR * y; 
-                    const z = currentR * radiusAtY * Math.sin(theta);
-                    
-                    mesh.userData.id = index;
-                    mesh.userData.scatterPos = new THREE.Vector3(x, yPos, z);
-                    mesh.position.copy(mesh.userData.scatterPos); 
-                    
-                    // 【关键】V40 的初始朝向设置
-                    mesh.lookAt(0,0,0); 
-                    mesh.rotateY(Math.PI); // 背面朝向中心
-                    mesh.userData.baseRotation = mesh.rotation.clone();
-
-                    mesh.userData.treeScale = (0.15 + Math.random() * 0.10) * 2.0 * 1.5; 
-
-                    const border = new THREE.Mesh(new THREE.BoxGeometry(5.2, 5.2, 0.1), new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 1.0 })); border.position.z = -0.06; border.name = "border"; mesh.add(border); photoGroup.add(mesh); photoMeshes.push(mesh);
+                        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); 
+                        
+                        const i = index; 
+                        const t = index / numFiles; const hTree = t * (CONFIG.treeHeight / 2) * 0.9; 
+                        const heightFraction = (hTree + CONFIG.treeHeight / 2) / CONFIG.treeHeight;
+                        const rAtHeight = CONFIG.treeRadius * (1 - heightFraction);
+                        const rFinal = rAtHeight * 1.05;
+                        const thetaSpiral = index * goldenAngle;
+                        mesh.userData.originalPos = new THREE.Vector3(rFinal * Math.cos(thetaSpiral), hTree, rFinal * Math.sin(thetaSpiral));
+                        
+                        const yBase = 1 - (i / (numFiles - 1)) * 2; const radiusAtYBase = Math.sqrt(1 - yBase * yBase); 
+                        const thetaBase = 2 * Math.PI * i / goldenRatio;
+                        const depthVar = 0.6 + 0.4 * Math.random(); 
+                        const currentR = CONFIG.scatterRadius * depthVar;
+                        const x = currentR * radiusAtYBase * Math.cos(thetaBase); const yPos = currentR * yBase; const z = currentR * radiusAtYBase * Math.sin(thetaBase);
+                        
+                        mesh.userData.id = index;
+                        mesh.userData.scatterPos = new THREE.Vector3(x, yPos, z);
+                        mesh.position.copy(mesh.userData.scatterPos); 
+                        mesh.lookAt(0,0,0); mesh.rotateY(Math.PI);
+                        mesh.userData.baseRotation = mesh.rotation.clone();
+                        mesh.userData.treeScale = (0.15 + Math.random() * 0.10) * 2.0 * 1.5; 
+                        
+                        const border = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, h + 0.2, 0.1), new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 1.0 })); 
+                        border.position.z = -0.06; border.name = "border"; mesh.add(border); 
+                        
+                        photoGroup.add(mesh); photoMeshes.push(mesh);
+                        
+                        if (photoMeshes.length === numFiles) {
+                            photoMeshes.sort((a, b) => a.userData.id - b.userData.id);
+                            buildGreedyPath(); 
+                        }
+                    };
                 }; reader.readAsDataURL(file);
-            }); targetState = STATE.SCATTER;
+            }); 
+            currentState = STATE.TREE; 
+        }
+
+        function buildGreedyPath() {
+            if (photoMeshes.length === 0) return;
+            const visited = new Set();
+            let currentIdx = 0; 
+            sortedPhotoIndices = [0]; visited.add(0);
+            while (sortedPhotoIndices.length < photoMeshes.length) {
+                let nearestId = -1; let minDist = Infinity;
+                const currentPos = photoMeshes[currentIdx].userData.scatterPos;
+                for (let i = 0; i < photoMeshes.length; i++) {
+                    if (visited.has(i)) continue;
+                    const dist = currentPos.distanceToSquared(photoMeshes[i].userData.scatterPos);
+                    if (dist < minDist) { minDist = dist; nearestId = i; }
+                }
+                if (nearestId !== -1) { sortedPhotoIndices.push(nearestId); visited.add(nearestId); currentIdx = nearestId; } else break;
+            }
+            currentSortIndex = 0;
+            triggerRotationTo(sortedPhotoIndices[0]);
+            lastAutoTime = clock.getElapsedTime();
+        }
+
+        function triggerRotationTo(targetId) {
+            const targetMesh = photoMeshes[targetId];
+            if (targetMesh) {
+                startQuaternion.copy(currentQuaternion);
+                const targetDir = targetMesh.userData.scatterPos.clone().normalize();
+                if (targetDir.lengthSq() > 0.001) {
+                    targetQuaternion.setFromUnitVectors(targetDir, new THREE.Vector3(0, 0, 1));
+                }
+                transitionStartTime = clock.getElapsedTime();
+            }
+        }
+
+        function updateRaycaster() {
+            if (currentState === STATE.TREE) {
+                hoverMeshId = -1; return;
+            }
+            raycaster.setFromCamera(centerPoint, camera);
+            const intersects = raycaster.intersectObjects(photoGroup.children, true);
+            if (intersects.length > 0) {
+                let hitObj = intersects[0].object;
+                while(hitObj && hitObj.userData.id === undefined) {
+                    hitObj = hitObj.parent;
+                }
+                if (hitObj && hitObj.userData.id !== undefined) {
+                    hoverMeshId = hitObj.userData.id;
+                } else {
+                    hoverMeshId = -1;
+                }
+            } else {
+                hoverMeshId = -1;
+            }
         }
 
         const clock = new THREE.Clock(); 
-        function updateLogic() {
-            const dt = clock.getDelta(); const time = clock.getElapsedTime();
-            
-            const isReleasingGrab = (currentState === STATE.ZOOM && targetState === STATE.SCATTER);
-            const isInitialScatter = (currentState === STATE.TREE && targetState === STATE.SCATTER);
 
-            if (isReleasingGrab || isInitialScatter) {
-                targetRotationVelocityX = (Math.random() - 0.5) * 2.0; 
-                targetRotationVelocityY = (Math.random() - 0.5) * 2.0;
+        function updateState(time) {
+            if (inputFist) {
+                currentState = STATE.TREE;
+                lastAutoTime = time;
+            } else if (inputOpen && currentState === STATE.TREE) {
+                currentState = STATE.SCATTER;
+                lastAutoTime = time;
+                triggerRotationTo(sortedPhotoIndices[currentSortIndex]);
             }
 
-            currentState = targetState; document.getElementById('state-display').innerText = currentState;
-            
-            const controls = document.getElementById('controls-panel');
-            if (currentState === STATE.SCATTER || currentState === STATE.ZOOM) {
-                controls.classList.add('hidden');
+            if (currentState !== STATE.TREE) {
+                if (inputPinch) {
+                    if (currentState !== STATE.ZOOM) {
+                        let targetId = hoverMeshId;
+                        if (targetId === -1 && sortedPhotoIndices.length > 0) {
+                            targetId = sortedPhotoIndices[currentSortIndex];
+                        }
+                        if (targetId !== -1) {
+                            lockedTargetId = targetId;
+                            const idx = sortedPhotoIndices.indexOf(targetId);
+                            if (idx !== -1) currentSortIndex = idx;
+                        }
+                    }
+                    currentState = STATE.ZOOM;
+                    lastAutoTime = time; 
+                    
+                } else if (currentState === STATE.ZOOM) {
+                    currentState = STATE.RETURNING;
+                    returnStartTime = time;
+                    lastAutoTime = time;
+                } else if (currentState === STATE.RETURNING) {
+                    if (time - returnStartTime > RETURN_DURATION) {
+                        currentState = STATE.SCATTER;
+                        if (sortedPhotoIndices.length > 0) {
+                            currentSortIndex = (currentSortIndex + 1) % sortedPhotoIndices.length;
+                            triggerRotationTo(sortedPhotoIndices[currentSortIndex]);
+                        }
+                        lockedTargetId = -1;
+                        lastAutoTime = time;
+                    } else {
+                        lastAutoTime = time; 
+                    }
+                } else {
+                    currentState = STATE.SCATTER;
+                    if (sortedPhotoIndices.length > 0 && time - transitionStartTime > (TOUR_MOVE_DURATION + AUTO_PLAY_INTERVAL)) {
+                        currentSortIndex = (currentSortIndex + 1) % sortedPhotoIndices.length;
+                        triggerRotationTo(sortedPhotoIndices[currentSortIndex]);
+                        lastAutoTime = time;
+                    }
+                }
+            }
+        }
+
+        function updateCameraRotation(dt, time) {
+            if (currentState === STATE.TREE) {
+                const identityQ = new THREE.Quaternion();
+                currentQuaternion.slerp(identityQ, dt * 2.0);
+                galaxyContainer.quaternion.copy(currentQuaternion);
+                treeRotationY += dt * 0.15; 
+
+            } else if (currentState === STATE.SCATTER) {
+                let t = (time - transitionStartTime) / TOUR_MOVE_DURATION;
+                t = Math.min(Math.max(t, 0), 1);
+                t = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+                currentQuaternion.slerpQuaternions(startQuaternion, targetQuaternion, t);
+                galaxyContainer.quaternion.copy(currentQuaternion);
+
             } else {
-                controls.classList.remove('hidden');
+                let lookAtTargetId = lockedTargetId;
+                if (lookAtTargetId !== -1) {
+                    const targetMesh = photoMeshes[lookAtTargetId];
+                    if (targetMesh) {
+                        const stablePos = targetMesh.userData.scatterPos.clone().normalize();
+                        targetQuaternion.setFromUnitVectors(stablePos, new THREE.Vector3(0, 0, 1));
+                    }
+                }
+                
+                let lerpSpeed = (currentState === STATE.ZOOM) ? 10.0 : 5.0;
+                currentQuaternion.slerp(targetQuaternion, dt * lerpSpeed);
+                galaxyContainer.quaternion.copy(currentQuaternion);
             }
+        }
 
-            if (currentState === STATE.SCATTER) {
-                currentRotationVelocityX = THREE.MathUtils.lerp(currentRotationVelocityX, targetRotationVelocityX, dt * 2);
-                currentRotationVelocityY = THREE.MathUtils.lerp(currentRotationVelocityY, targetRotationVelocityY, dt * 2);
-                rotationAngleX += currentRotationVelocityX * dt;
-                rotationAngleY += currentRotationVelocityY * dt;
+        const flipY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
-            } else if (currentState === STATE.TREE) {
-                currentRotationVelocityX = THREE.MathUtils.lerp(currentRotationVelocityX, 0, dt * 5);
-                currentRotationVelocityY = THREE.MathUtils.lerp(currentRotationVelocityY, 0, dt * 5);
-                rotationAngleX = THREE.MathUtils.lerp(rotationAngleX, 0, dt * 2); 
-                rotationAngleY = THREE.MathUtils.lerp(rotationAngleY, 0, dt * 2);
-                treeRotationY += dt * 0.3; 
-            }
+        function render() { 
+            requestAnimationFrame(render); 
+            const dt = clock.getDelta();
+            const time = clock.getElapsedTime();
 
-            starMesh.rotation.y += dt * 0.5;
+            updateRaycaster();
+            updateState(time);
+            updateCameraRotation(dt, time);
+
+            let statusText = currentState;
+            if (currentState === STATE.RETURNING) statusText = "WAITING...";
+            document.getElementById('state-display').innerText = statusText;
+            const controls = document.getElementById('controls-panel');
+            if (currentState === STATE.SCATTER || currentState === STATE.ZOOM || currentState === STATE.RETURNING) controls.classList.add('hidden'); else controls.classList.remove('hidden');
+
             starMesh.position.lerp(new THREE.Vector3(0, currentState === STATE.TREE ? CONFIG.treeHeight / 2 + 1 : CONFIG.treeHeight / 2 + 12 + Math.sin(time)*2, 0), dt * 2); 
-            bgStars.material.opacity = THREE.MathUtils.lerp(bgStars.material.opacity, 0.6, dt * 1); 
+            starMesh.rotation.y += dt * 0.5;
+            bgStars.material.opacity = THREE.MathUtils.lerp(bgStars.material.opacity, 1.0, dt * 1); 
 
             const haloScaleBase = currentState === STATE.TREE ? 0 : 1; 
             haloParticles.forEach((hp, i) => {
@@ -366,138 +453,90 @@
                 dummy.scale.setScalar(haloScaleBase * breath); dummy.lookAt(camera.position); dummy.updateMatrix(); haloMesh.setMatrixAt(i, dummy.matrix);
             });
             haloMesh.instanceMatrix.needsUpdate = true;
-            haloMesh.rotation.set(rotationAngleX, rotationAngleY, 0); 
 
-            let goldIdx = 0; let redIdx = 0; let greenIdx = 0;
-            const euler = new THREE.Euler(rotationAngleX, rotationAngleY, 0); const rotMatrix = new THREE.Matrix4().makeRotationFromEuler(euler);
-            
-            const tempColor = new THREE.Color();
-
+            let goldIdx = 0; let redIdx = 0; let greenIdx = 0; const tempColor = new THREE.Color();
             particles.forEach((p, i) => {
                 let target = p.targetTree; 
-                if (currentState === STATE.TREE) target = p.targetTree.clone().applyAxisAngle(new THREE.Vector3(0,1,0), treeRotationY);
-                else if (currentState === STATE.SCATTER || currentState === STATE.ZOOM) target = p.targetScatter.clone().applyMatrix4(rotMatrix);
-                
+                if (currentState === STATE.TREE) { target = p.targetTree.clone().applyAxisAngle(new THREE.Vector3(0,1,0), treeRotationY); } 
+                else { target = p.targetScatter; }
                 p.pos.lerp(target, dt * 2.0); dummy.position.copy(p.pos);
                 let currentScale = p.scale;
-                
-                // 【保留设置】闪烁频率 0.97，亮度 100.0
                 const noise = Math.sin(time * p.twinkleSpeed + p.twinklePhase);
-                let brightnessMultiplier = 1.0;
-                if (noise > 0.97) { 
-                    brightnessMultiplier = 1.0 + (noise - 0.97) * 100.0; 
-                }
-
+                let brightnessMultiplier = 1.0; if (noise > 0.97) brightnessMultiplier = 1.0 + (noise - 0.97) * 200.0; 
                 tempColor.copy(p.baseColor).multiplyScalar(brightnessMultiplier);
-
-                if (p.type === 'gold') { 
-                    const scaleOscillation = currentState === STATE.TREE ? 0.05 : 0.2; 
-                    currentScale *= (1 + Math.sin(time * 3 + p.id) * scaleOscillation); 
-                }
-                dummy.scale.setScalar(currentScale); 
-                dummy.rotation.set(p.rot.x + time*0.5, p.rot.y + time*0.3, p.rot.z); 
-                dummy.updateMatrix();
-                
-                if (p.type === 'gold') {
-                    imeshGold.setMatrixAt(goldIdx, dummy.matrix);
-                    imeshGold.setColorAt(goldIdx, tempColor);
-                    goldIdx++;
-                } else if (p.type === 'red') {
-                    imeshRed.setMatrixAt(redIdx, dummy.matrix);
-                    imeshRed.setColorAt(redIdx, tempColor);
-                    redIdx++;
-                } else {
-                    imeshGreen.setMatrixAt(greenIdx, dummy.matrix);
-                    imeshGreen.setColorAt(greenIdx, tempColor);
-                    greenIdx++;
-                }
+                if (p.type === 'gold') { const scaleOscillation = currentState === STATE.TREE ? 0.05 : 0.2; currentScale *= (1 + Math.sin(time * 3 + p.id) * scaleOscillation); }
+                dummy.scale.setScalar(currentScale); dummy.rotation.set(p.rot.x + time*0.5, p.rot.y + time*0.3, p.rot.z); dummy.updateMatrix();
+                if (p.type === 'gold') { imeshGold.setMatrixAt(goldIdx, dummy.matrix); imeshGold.setColorAt(goldIdx++, tempColor); } 
+                else if (p.type === 'red') { imeshRed.setMatrixAt(redIdx, dummy.matrix); imeshRed.setColorAt(redIdx++, tempColor); } 
+                else { imeshGreen.setMatrixAt(greenIdx, dummy.matrix); imeshGreen.setColorAt(greenIdx++, tempColor); }
             });
-            
-            imeshGold.instanceMatrix.needsUpdate = true; 
-            imeshRed.instanceMatrix.needsUpdate = true;
-            imeshGreen.instanceMatrix.needsUpdate = true;
-            imeshGold.instanceColor.needsUpdate = true; 
-            imeshRed.instanceColor.needsUpdate = true;
-            imeshGreen.instanceColor.needsUpdate = true;
+            imeshGold.instanceMatrix.needsUpdate = true; imeshRed.instanceMatrix.needsUpdate = true; imeshGreen.instanceMatrix.needsUpdate = true;
+            imeshGold.instanceColor.needsUpdate = true; imeshRed.instanceColor.needsUpdate = true; imeshGreen.instanceColor.needsUpdate = true;
 
-            let bestCandidate = null; let maxDot = -2.0;
             photoMeshes.forEach(mesh => {
+                const border = mesh.getObjectByName("border");
+                const targetQ = new THREE.Quaternion();
+
                 if (currentState === STATE.TREE) { 
                     let target = mesh.userData.originalPos.clone().applyAxisAngle(new THREE.Vector3(0,1,0), treeRotationY);
                     mesh.position.lerp(target, dt * 2); 
-                    
-                    // 树状态：让照片背向中心（即正面朝外）
-                    const lookTarget = new THREE.Vector3(0, mesh.position.y, 0);
-                    mesh.lookAt(lookTarget);
-                    mesh.rotateY(Math.PI); 
-
+                    mesh.lookAt(new THREE.Vector3(0, mesh.position.y, 0)); mesh.rotateY(Math.PI); 
                     const s = mesh.userData.treeScale; mesh.scale.lerp(new THREE.Vector3(s, s, s), dt * 3); 
+                    border.material.emissiveIntensity = 0.5;
+                    mesh.quaternion.slerp(mesh.quaternion, dt * 5); 
                 } else {
-                    // 【关键还原】V40 的散开更新逻辑
                     mesh.scale.lerp(new THREE.Vector3(1,1,1), dt * 3); 
-                    const basePos = mesh.userData.scatterPos; 
-                    // 这里不直接 applyMatrix4，而是让位置固定，通过 rotateOnWorldAxis 旋转 mesh 本身
-                    // 但 V40 原文是 targetPos = basePos.clone().applyMatrix4(rotMatrix)
-                    // 这里的关键是 V40 的旋转方式：
-                    // mesh.rotation.copy(mesh.userData.baseRotation) 重置旋转
-                    // 然后 rotateOnWorldAxis 施加整体旋转
                     
-                    // 为了修复 "平躺" bug 并配合 V40 逻辑：
-                    // V40 的 targetPos 是带旋转的，我们直接用 targetPos
-                    const targetPos = basePos.clone().applyMatrix4(rotMatrix);
+                    if (currentState === STATE.ZOOM && mesh.userData.id === lockedTargetId) {
+                        const zoomTarget = mesh.userData.scatterPos.clone().normalize().multiplyScalar(40);
+                        mesh.position.lerp(zoomTarget, dt * 5);
+                        mesh.scale.lerp(new THREE.Vector3(2.5, 2.5, 2.5), dt * 5);
+                        border.material.emissive.setHex(0xff3333); border.material.emissiveIntensity = 4.0;
+                        
+                        mesh.getWorldPosition(tempVec);
+                        dummy.position.copy(tempVec);
+                        dummy.lookAt(camera.position);
+                        tempParentInverse.copy(galaxyContainer.quaternion).invert();
+                        targetQ.copy(tempParentInverse).multiply(dummy.quaternion);
 
-                    if (currentState === STATE.ZOOM && selectedPhotoIndex === mesh.userData.id) { 
-                        mesh.position.lerp(new THREE.Vector3(0, 0, 40), dt * 5); 
-                        mesh.lookAt(camera.position); 
-                        mesh.scale.lerp(new THREE.Vector3(1.8, 1.8, 1.8), dt * 5); 
                     } else {
-                        mesh.position.lerp(targetPos, dt * 3); 
-                        
-                        // 还原 V40 的旋转逻辑：
-                        mesh.rotation.copy(mesh.userData.baseRotation); // 恢复初始朝向 (背对中心)
-                        mesh.rotateOnWorldAxis(new THREE.Vector3(1,0,0), rotationAngleX); // 施加 X 轴公转
-                        mesh.rotateOnWorldAxis(new THREE.Vector3(0,1,0), rotationAngleY); // 施加 Y 轴公转
-                        
-                        // 还原 V40 的点积选择逻辑
-                        const dir = targetPos.clone().normalize(); 
-                        const dot = dir.z; 
-                        
-                        const border = mesh.getObjectByName("border");
-                        if (dot > 0.92 && currentState !== STATE.ZOOM) { 
-                            if (dot > maxDot) { maxDot = dot; bestCandidate = mesh; } 
-                        } 
-                        border.material.emissive.setHex(0xffd700); border.material.emissiveIntensity = 1.0; mesh.scale.lerp(new THREE.Vector3(1.0, 1.0, 1.0), dt * 5);
+                        mesh.position.lerp(mesh.userData.scatterPos, dt * 3);
+                        targetQ.setFromEuler(mesh.userData.baseRotation);
+
+                        let isHighlight = false;
+                        if (currentState === STATE.RETURNING && mesh.userData.id === lockedTargetId) isHighlight = true;
+                        if (currentState === STATE.SCATTER && sortedPhotoIndices.length > 0 && mesh.userData.id === sortedPhotoIndices[currentSortIndex]) isHighlight = true;
+                        if (currentState === STATE.SCATTER && mesh.userData.id === hoverMeshId) isHighlight = true;
+
+                        if (isHighlight) {
+                            mesh.scale.lerp(new THREE.Vector3(1.3, 1.3, 1.3), dt * 5);
+                            border.material.emissive.setHex(0xffd700); border.material.emissiveIntensity = 2.0;
+                        } else {
+                            mesh.scale.lerp(new THREE.Vector3(1.0, 1.0, 1.0), dt * 5);
+                            border.material.emissive.setHex(0xffd700); border.material.emissiveIntensity = 0.5;
+                        }
                     }
+                    mesh.quaternion.slerp(targetQ, dt * 8); 
                 }
             });
-            if (currentState === STATE.SCATTER && bestCandidate) { selectedPhotoIndex = bestCandidate.userData.id; const border = bestCandidate.getObjectByName("border"); border.material.emissive.setHex(0xff3333); border.material.emissiveIntensity = 4.0; bestCandidate.scale.lerp(new THREE.Vector3(1.3, 1.3, 1.3), dt * 5); }
-            camera.lookAt(0, 0, 0);
+            composer.render();
         }
-        function render() { requestAnimationFrame(render); updateLogic(); composer.render(); } render();
+        render();
 
         const videoElement = document.getElementById('input-video');
-        const cursor = document.getElementById('hand-cursor');
-
+        
         function onResults(results) {
             document.getElementById('loader').style.opacity = 0; setTimeout(() => document.getElementById('loader').style.display = 'none', 1000);
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0]; 
-                const cx = (landmarks[0].x + landmarks[9].x) / 2; 
-                const cy = (landmarks[0].y + landmarks[9].y) / 2;
+                const wrist = landmarks[0]; let avgDist = 0; 
+                [8, 12, 16, 20].forEach(id => avgDist += Math.sqrt(Math.pow(landmarks[id].x - wrist.x, 2) + Math.pow(landmarks[id].y - wrist.y, 2)));
                 
-                cursor.style.display = 'block';
-                cursor.style.left = (1 - cx) * 100 + '%'; 
-                cursor.style.top = cy * 100 + '%';
-
-                const wrist = landmarks[0]; let avgDist = 0; [8, 12, 16, 20].forEach(id => avgDist += Math.sqrt(Math.pow(landmarks[id].x - wrist.x, 2) + Math.pow(landmarks[id].y - wrist.y, 2)));
-                const isFist = (avgDist / 4) < 0.22; 
-                isPinching = Math.sqrt(Math.pow(landmarks[8].x - landmarks[4].x, 2) + Math.pow(landmarks[8].y - landmarks[4].y, 2)) < 0.10; 
-                
-                if (isPinching) cursor.classList.add('pinching'); else cursor.classList.remove('pinching');
-
-                if (isFist) targetState = STATE.TREE; else if (isPinching) { if (currentState === STATE.SCATTER || currentState === STATE.ZOOM) targetState = STATE.ZOOM; } else targetState = STATE.SCATTER;
-            } else {
-                cursor.style.display = 'none';
+                inputFist = (avgDist / 4) < 0.22; 
+                inputPinch = Math.sqrt(Math.pow(landmarks[8].x - landmarks[4].x, 2) + Math.pow(landmarks[8].y - landmarks[4].y, 2)) < 0.10; 
+                inputOpen = (avgDist / 4) > 0.35; 
+            } else { 
+                inputFist = false; inputPinch = false; inputOpen = false;
             }
         }
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
